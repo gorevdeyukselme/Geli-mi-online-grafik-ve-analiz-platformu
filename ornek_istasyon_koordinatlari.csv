@@ -1,0 +1,33 @@
+﻿Station,Latitude,Longitude,Distance_mile,Zone,Note
+TM1,40.9967,39.7655,0.5,Kıyı,CTD örnek istasyonu
+TM2,41.0142,39.7655,1.0,Geçiş,CTD örnek istasyonu
+TM3,41.0927,39.7654,5.0,Açık,CTD örnek istasyonu
+TM4,41.1676,39.7654,10.0,Açık,CTD örnek istasyonu
+ST01,41.174740395925454,41.35,0.5,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST02,41.19794255386042,41.14814814814815,1.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST03,41.21816387600233,40.946296296296296,3.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST04,41.23414709848079,40.74444444444445,5.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST05,41.244898461935556,40.54259259259259,10.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST06,41.24974949866041,40.34074074074074,0.5,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST07,41.248398594687394,40.13888888888889,1.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST08,41.24092974268257,39.93703703703704,3.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST09,41.22780731968879,39.73518518518519,5.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST10,41.209847214410395,39.53333333333333,10.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST11,41.18816609920523,39.33148148148148,0.5,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST12,41.164112000805986,39.12962962962963,1.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST13,41.13918048654699,38.92777777777778,3.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST14,41.11492167723104,38.72592592592593,5.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST15,41.09284386812576,38.52407407407408,10.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST16,41.07431975046921,38.32222222222222,0.5,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST17,41.06050106417714,38.120370370370374,1.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST18,41.05224698823349,37.91851851851852,3.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST19,41.05007072110246,37.71666666666667,5.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST20,41.05410757253369,37.51481481481481,10.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST21,41.06410655065734,37.31296296296296,0.5,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST22,41.07944596744296,37.111111111111114,1.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST23,41.09917209225007,36.90925925925926,3.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST24,41.122058450180106,36.70740740740741,5.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST25,41.14668207834524,36.50555555555556,10.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST26,41.17151199880878,36.303703703703704,0.5,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST27,41.19500440737806,36.101851851851855,1.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu
+ST28,41.215698659871876,35.9,3.0,Secchi kıyı ağı,Secchi-optik örnek istasyonu

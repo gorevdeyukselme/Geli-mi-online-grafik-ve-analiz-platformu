@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+plotly
+openpyxl
+xlrd
+xarray
+netCDF4
+scipy
+statsmodels
+kaleido
+python-docx
+python-pptx
