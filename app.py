@@ -149,6 +149,45 @@ def default_col(df: pd.DataFrame, keywords: List[str], only_numeric: bool = Fals
     return cols[0] if cols else None
 
 
+def order_categories_by_column(data: pd.DataFrame, category_col: str, order_col: Optional[str]) -> List:
+    if category_col not in data.columns:
+        return []
+    if order_col and order_col != "Yok" and order_col in data.columns:
+        order_series = data.groupby(category_col, dropna=False)[order_col].mean().sort_values()
+        return order_series.index.tolist()
+    try:
+        return sorted(data[category_col].dropna().unique().tolist())
+    except Exception:
+        return data[category_col].dropna().astype(str).unique().tolist()
+
+
+def add_contours_to_heatmap(fig, pivot: pd.DataFrame, contour_count: int = 10):
+    try:
+        z = pivot.astype(float).values
+        if z.size < 4 or np.isfinite(z).sum() < 4:
+            return fig
+        zmin = float(np.nanmin(z))
+        zmax = float(np.nanmax(z))
+        if not np.isfinite(zmin) or not np.isfinite(zmax) or zmax <= zmin:
+            return fig
+        step = (zmax - zmin) / max(int(contour_count), 1)
+        if step <= 0:
+            return fig
+        contour = go.Contour(
+            z=z,
+            x=list(pivot.columns),
+            y=list(pivot.index),
+            contours=dict(coloring="none", showlabels=True, start=zmin, end=zmax, size=step),
+            line=dict(color="black", width=0.7),
+            showscale=False,
+            hoverinfo="skip",
+        )
+        fig.add_trace(contour)
+    except Exception:
+        pass
+    return fig
+
+
 def add_threshold_lines(fig, chart_type, x_threshold=None, y_threshold=None):
     if x_threshold is not None and chart_type != "3B saçılım grafiği":
         try:
@@ -486,7 +525,7 @@ with tab_general:
                 return None
         fig = add_threshold_lines(fig, chart_type, _parse_threshold(x_thr_txt), _parse_threshold(y_thr_txt))
         fig.update_layout(height=720, title_x=0.02)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="general_plot")
         st.session_state["last_fig"] = fig
         st.session_state["last_title"] = title
         fig_downloads(fig, "genel_grafik")
@@ -502,25 +541,44 @@ with tab_ctd:
     temp_default = default_col(df, ["Temperature", "Temp", "Sıcak"], only_numeric=True)
     sal_default = default_col(df, ["Salinity", "Tuzluluk"], only_numeric=True)
     oxy_default = default_col(df, ["Oxygen", "Oksijen", "DO"], only_numeric=True)
+    section_default = default_col(df, ["Transect", "Section", "Kesit", "Zone"], only_numeric=False)
+    order_default = default_col(df, ["Distance_km", "Distance_mile", "Station_Order", "Order"], only_numeric=True)
     c1, c2, c3 = st.columns(3)
     ctd_chart = c1.selectbox("CTD grafik türü", ["Derinlik profili", "Çoklu profil", "T-S diyagramı", "Hovmöller", "Transekt / kesit", "Oksijen eşiği profili"])
     depth_col = c2.selectbox("Derinlik", nums, index=(nums.index(depth_default) if depth_default in nums else 0), key="ctd_depth")
     param_col = c3.selectbox("Parametre", nums, index=(nums.index(temp_default) if temp_default in nums else 0), key="ctd_param")
     group_col = st.selectbox("Renk/grup", ["Yok"] + cols, index=(cols.index("Station")+1 if "Station" in cols else 0), key="ctd_group")
     x_var = st.selectbox("Hovmöller/transekt X kolonu", cols, index=(cols.index("Month") if "Month" in cols else 0), key="ctd_xvar")
+
+    extra1, extra2, extra3, extra4 = st.columns(4)
+    section_col = extra1.selectbox("Kesit/Transect sütunu", ["Yok"] + categorical_cols(df), index=((["Yok"] + categorical_cols(df)).index(section_default) if section_default in categorical_cols(df) else 0), key="ctd_section_col")
+    if section_col != "Yok":
+        section_values = [str(v) for v in df[section_col].dropna().astype(str).unique().tolist()]
+        selected_section = extra2.selectbox("Kesit seç", ["Tümü"] + section_values, key="ctd_section_val")
+    else:
+        selected_section = "Tümü"
+        extra2.caption("İsteğe bağlı")
+    order_col_ctd = extra3.selectbox("X sıralama kolonu", ["Yok"] + nums, index=((["Yok"] + nums).index(order_default) if order_default in nums else 0), key="ctd_order_col")
+    show_contours = extra4.checkbox("Kontur/kesit çizgisi", value=(ctd_chart in ["Hovmöller", "Transekt / kesit"]), key="ctd_contours")
+    contour_count = st.slider("Kontur çizgisi sayısı", min_value=4, max_value=20, value=10, key="ctd_contour_count") if show_contours and ctd_chart in ["Hovmöller", "Transekt / kesit"] else 10
+
     title_ctd = st.text_input("Başlık", value=f"{ctd_chart} - {param_col}", key="ctd_title")
     reverse_depth = st.checkbox("Derinlik aşağı doğru artsın", value=True, key="ctd_rev")
     fig_ctd = None
     try:
         color_arg = None if group_col == "Yok" else group_col
+        data = df.copy()
+        if section_col != "Yok" and selected_section != "Tümü":
+            data = data[data[section_col].astype(str) == str(selected_section)]
+
         if ctd_chart in ["Derinlik profili", "Çoklu profil"]:
-            data = df.dropna(subset=[depth_col, param_col]).sort_values(depth_col)
+            data = data.dropna(subset=[depth_col, param_col]).sort_values(depth_col)
             fig_ctd = px.line(data, x=param_col, y=depth_col, color=color_arg, markers=True, title=title_ctd, template="plotly_white")
             if reverse_depth:
                 fig_ctd.update_yaxes(autorange="reversed")
         elif ctd_chart == "Oksijen eşiği profili":
             oxy_col = st.selectbox("Oksijen kolonu", nums, index=(nums.index(oxy_default) if oxy_default in nums else 0), key="oxy_col")
-            data = df.dropna(subset=[depth_col, oxy_col]).sort_values(depth_col)
+            data = data.dropna(subset=[depth_col, oxy_col]).sort_values(depth_col)
             fig_ctd = px.line(data, x=oxy_col, y=depth_col, color=color_arg, markers=True, title=title_ctd, template="plotly_white")
             fig_ctd.add_vline(x=5, line_dash="dash", annotation_text="5 mg/L")
             fig_ctd.add_vline(x=2, line_dash="dot", annotation_text="2 mg/L")
@@ -530,16 +588,23 @@ with tab_ctd:
             sal_col = st.selectbox("Tuzluluk kolonu", nums, index=(nums.index(sal_default) if sal_default in nums else 0), key="ts_sal")
             temp_col = st.selectbox("Sıcaklık kolonu", nums, index=(nums.index(temp_default) if temp_default in nums else 0), key="ts_temp")
             color_ts = st.selectbox("Renk değeri", nums, index=(nums.index(oxy_default) if oxy_default in nums else 0), key="ts_color")
-            data = df.dropna(subset=[sal_col, temp_col, color_ts])
-            fig_ctd = px.scatter(data, x=sal_col, y=temp_col, color=color_ts, hover_data=[c for c in ["Station", "Depth_m", "Date"] if c in cols], title=title_ctd, template="plotly_white")
+            data = data.dropna(subset=[sal_col, temp_col, color_ts])
+            fig_ctd = px.scatter(data, x=sal_col, y=temp_col, color=color_ts, hover_data=[c for c in ["Station", "Depth_m", "Date", section_col if section_col != "Yok" else None] if c and c in cols], title=title_ctd, template="plotly_white")
         elif ctd_chart in ["Hovmöller", "Transekt / kesit"]:
-            data = df.dropna(subset=[x_var, depth_col, param_col])
+            data = data.dropna(subset=[x_var, depth_col, param_col])
             pivot = data.pivot_table(index=depth_col, columns=x_var, values=param_col, aggfunc="mean")
+            pivot = pivot.sort_index()
+            if order_col_ctd != "Yok" and x_var in data.columns and order_col_ctd in data.columns:
+                x_order = order_categories_by_column(data, x_var, order_col_ctd)
+                pivot = pivot.reindex(columns=x_order)
             fig_ctd = px.imshow(pivot, aspect="auto", title=title_ctd, template="plotly_white", labels=dict(x=x_var, y=depth_col, color=param_col))
+            if show_contours:
+                fig_ctd = add_contours_to_heatmap(fig_ctd, pivot, contour_count=contour_count)
             if reverse_depth:
                 fig_ctd.update_yaxes(autorange="reversed")
+
         fig_ctd.update_layout(height=720, title_x=0.02)
-        st.plotly_chart(fig_ctd, use_container_width=True)
+        st.plotly_chart(fig_ctd, use_container_width=True, key="ctd_plot")
         st.session_state["last_fig"] = fig_ctd
         st.session_state["last_title"] = title_ctd
         fig_downloads(fig_ctd, "ctd_grafik")
@@ -553,6 +618,9 @@ with tab_map:
     st.markdown("### Harita ve uydu/grid görselleştirme")
     lat_def = default_col(df, ["Latitude", "lat", "enlem"], only_numeric=True)
     lon_def = default_col(df, ["Longitude", "lon", "boylam"], only_numeric=True)
+    label_default = default_col(df, ["Station", "İstasyon", "Name", "Label"], only_numeric=False)
+    line_group_default = default_col(df, ["Transect", "Section", "Kesit", "Zone"], only_numeric=False)
+    order_default = default_col(df, ["Station_Order", "Distance_km", "Distance_mile", "Order"], only_numeric=True)
     if lat_def is None or lon_def is None:
         st.warning("Harita için Latitude/Longitude kolonları gerekir.")
     else:
@@ -561,22 +629,57 @@ with tab_map:
         lat_col = c2.selectbox("Enlem", nums, index=nums.index(lat_def), key="lat")
         lon_col = c3.selectbox("Boylam", nums, index=nums.index(lon_def), key="lon")
         value_col = c4.selectbox("Renk/Z", nums, index=min(2, len(nums)-1), key="mapval")
-        size_map = st.selectbox("Boyut", ["Yok"] + nums, key="mapsize")
-        hover_cols = [c for c in ["Station", "Date", "Month", "Season", "Depth_m"] if c in cols]
+
+        c5, c6, c7, c8 = st.columns(4)
+        size_map = c5.selectbox("Boyut", ["Yok"] + nums, key="mapsize")
+        label_col = c6.selectbox("İstasyon etiketi", ["Yok"] + cols, index=((["Yok"] + cols).index(label_default) if label_default in cols else 0), key="maplabel")
+        show_labels = c7.checkbox("İstasyon adlarını göster", value=(label_default is not None), key="map_show_labels")
+        show_lines = c8.checkbox("Kesit/transekt çizgisi", value=False, key="map_show_lines")
+
+        c9, c10, c11 = st.columns(3)
+        line_group_col = c9.selectbox("Kesit grubu", ["Yok"] + categorical_cols(df), index=((["Yok"] + categorical_cols(df)).index(line_group_default) if line_group_default in categorical_cols(df) else 0), key="maplinegroup")
+        line_order_col = c10.selectbox("Çizgi sıralama kolonu", ["Yok"] + nums, index=((["Yok"] + nums).index(order_default) if order_default in nums else 0), key="maplineorder")
+        anim_candidates = [c for c in cols if c != value_col]
+        anim_col = c11.selectbox("Animasyon kolonu", ["Yok"] + anim_candidates, index=((["Yok"] + anim_candidates).index("Month") if "Month" in anim_candidates else 0), key="anim_col")
+
+        hover_cols = [c for c in ["Station", label_col if label_col != "Yok" else None, "Transect", "Date", "Month", "Season", "Depth_m"] if c and c in cols]
         try:
             if map_type == "Uydu grid ısı haritası":
                 data = df.dropna(subset=[lat_col, lon_col, value_col])
                 pivot = data.pivot_table(index=lat_col, columns=lon_col, values=value_col, aggfunc="mean")
                 fig_map = px.imshow(pivot, aspect="auto", origin="lower", title=f"Uydu/Grid haritası - {value_col}", labels=dict(x=lon_col, y=lat_col, color=value_col), template="plotly_white")
-            elif map_type == "Animasyonlu nokta haritası":
-                anim_col = st.selectbox("Animasyon kolonu", [c for c in cols if c != value_col], index=(cols.index("Month") if "Month" in cols else 0), key="anim_col")
+            elif map_type == "Animasyonlu nokta haritası" and anim_col != "Yok":
                 data = df.dropna(subset=[lat_col, lon_col, value_col])
-                fig_map = px.scatter_mapbox(data, lat=lat_col, lon=lon_col, color=value_col, size=None if size_map=="Yok" else size_map, animation_frame=anim_col, hover_data=hover_cols, zoom=6, height=720, mapbox_style="open-street-map", title=f"Animasyonlu harita - {value_col}")
+                fig_map = px.scatter_mapbox(data, lat=lat_col, lon=lon_col, color=value_col, size=None if size_map=="Yok" else size_map, animation_frame=anim_col, hover_data=hover_cols, text=label_col if show_labels and label_col != "Yok" else None, zoom=6, height=720, mapbox_style="open-street-map", title=f"Animasyonlu harita - {value_col}")
             else:
                 data = df.dropna(subset=[lat_col, lon_col])
-                fig_map = px.scatter_mapbox(data, lat=lat_col, lon=lon_col, color=None if map_type=="İstasyon haritası" else value_col, size=None if size_map=="Yok" else size_map, hover_data=hover_cols, zoom=6, height=720, mapbox_style="open-street-map", title=f"Harita - {dataset_name}")
+                fig_map = px.scatter_mapbox(data, lat=lat_col, lon=lon_col, color=None if map_type=="İstasyon haritası" else value_col, size=None if size_map=="Yok" else size_map, hover_data=hover_cols, text=label_col if show_labels and label_col != "Yok" else None, zoom=6, height=720, mapbox_style="open-street-map", title=f"Harita - {dataset_name}")
+
+            if show_labels and map_type != "Uydu grid ısı haritası":
+                fig_map.update_traces(textposition="top right")
+
+            if show_lines and map_type != "Uydu grid ısı haritası":
+                line_data = data.dropna(subset=[lat_col, lon_col]).copy()
+                if line_group_col != "Yok":
+                    grouped = line_data.groupby(line_group_col, dropna=False)
+                else:
+                    grouped = [("Tümü", line_data)]
+                for grp_name, grp_df in grouped:
+                    grp_df = grp_df.copy()
+                    if line_order_col != "Yok" and line_order_col in grp_df.columns:
+                        grp_df = grp_df.sort_values(line_order_col)
+                    fig_map.add_trace(go.Scattermapbox(
+                        lat=grp_df[lat_col],
+                        lon=grp_df[lon_col],
+                        mode="lines",
+                        name=f"Kesit: {grp_name}",
+                        line=dict(width=2),
+                        hoverinfo="skip",
+                        showlegend=True,
+                    ))
+
             fig_map.update_layout(title_x=0.02, margin=dict(l=20,r=20,t=60,b=20))
-            st.plotly_chart(fig_map, use_container_width=True)
+            st.plotly_chart(fig_map, use_container_width=True, key="map_plot")
             st.session_state["last_fig"] = fig_map
             st.session_state["last_title"] = f"Harita - {dataset_name}"
             fig_downloads(fig_map, "harita_grafik")
@@ -599,7 +702,7 @@ with tab_stats:
         elif stat_type == "Korelasyon":
             corr = df[selected_nums].corr(method=st.selectbox("Yöntem", ["pearson", "spearman", "kendall"]))
             fig_stat = px.imshow(corr, text_auto=".2f", zmin=-1, zmax=1, aspect="auto", title="Korelasyon matrisi", template="plotly_white")
-            st.plotly_chart(fig_stat, use_container_width=True)
+            st.plotly_chart(fig_stat, use_container_width=True, key="stats_plot")
             st.session_state["last_fig"] = fig_stat
             st.session_state["last_title"] = "Korelasyon matrisi"
             fig_downloads(fig_stat, "korelasyon")
@@ -616,7 +719,7 @@ with tab_stats:
                 scale = max(np.ptp(scores[:,0]), np.ptp(scores[:,1])) * 0.22
                 for i, var in enumerate(selected_nums):
                     fig_stat.add_annotation(x=loadings[i,0]*scale, y=loadings[i,1]*scale, ax=0, ay=0, xref="x", yref="y", axref="x", ayref="y", text=var, showarrow=True, arrowhead=2)
-                st.plotly_chart(fig_stat, use_container_width=True)
+                st.plotly_chart(fig_stat, use_container_width=True, key="stats_plot")
                 st.session_state["last_fig"] = fig_stat
                 st.session_state["last_title"] = "PCA biplot"
                 fig_downloads(fig_stat, "pca_biplot")
@@ -628,7 +731,7 @@ with tab_stats:
                 data = data.groupby(time_col, dropna=False)[ytrend].mean().reset_index()
             s, z, p, sen = mann_kendall_test(data[ytrend])
             fig_stat = px.scatter(data, x=time_col, y=ytrend, trendline="ols", title=f"Mann-Kendall trend | S={s:.1f}, Z={z:.2f}, p={p:.3f}, Sen slope={sen:.4f}", template="plotly_white")
-            st.plotly_chart(fig_stat, use_container_width=True)
+            st.plotly_chart(fig_stat, use_container_width=True, key="stats_plot")
             st.info(f"Mann-Kendall: S={s:.1f}, Z={z:.2f}, p={p:.3f}; Sen eğimi={sen:.4f} birim/adım")
             st.session_state["last_fig"] = fig_stat
             st.session_state["last_title"] = "Mann-Kendall trend"
@@ -637,7 +740,7 @@ with tab_stats:
             xreg = st.selectbox("X", nums, index=0, key="xreg")
             yreg = st.selectbox("Y", nums, index=min(1, len(nums)-1), key="yreg")
             fig_stat = px.scatter(df.dropna(subset=[xreg, yreg]), x=xreg, y=yreg, color=None if group_col_stat=="Yok" else group_col_stat, trendline="ols", title=f"Regresyon: {yreg} ~ {xreg}", template="plotly_white")
-            st.plotly_chart(fig_stat, use_container_width=True)
+            st.plotly_chart(fig_stat, use_container_width=True, key="stats_plot")
             st.session_state["last_fig"] = fig_stat
             st.session_state["last_title"] = f"Regresyon: {yreg} ~ {xreg}"
             fig_downloads(fig_stat, "regresyon")
@@ -656,7 +759,7 @@ with tab_report:
     if last_fig is None:
         st.info("Önce herhangi bir sekmede grafik oluşturun. Son oluşturulan grafik burada rapora eklenir.")
     else:
-        st.plotly_chart(last_fig, use_container_width=True)
+        st.plotly_chart(last_fig, use_container_width=True, key="report_plot")
         fig_downloads(last_fig, "son_grafik")
         try:
             st.download_button("Word raporu indir", make_docx_report(report_title, summary_text, last_fig), "grafik_raporu.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")

@@ -70,3 +70,11 @@ streamlit run app.py
 - Enlem: Latitude
 - Boylam: Longitude
 - Renk/Z: chlor_a_mg_m3, spm_mg_L veya turbidity_FNU
+
+
+## Yeni eklenen özellikler
+- Haritada istasyon adlarını gösterme
+- Haritada kesit/transekt çizgisini istasyonları birleştirerek gösterme
+- Hovmöller ve kesit grafiklerinde kontur/kesit çizgilerini gösterme
+- Örnek veri setlerine Transect, Section_Name ve Station_Order sütunları eklenmiştir
+- Streamlit tekrar grafik kimliği hatasını önlemek için grafik anahtarları güncellenmiştir
